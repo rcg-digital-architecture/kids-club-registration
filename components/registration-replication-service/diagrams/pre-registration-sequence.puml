@@ -1,0 +1,39 @@
+@startuml
+title Pre-Cruise Registration with Child Tracking Toggle
+
+actor Guest as G
+participant "Mobile App" as MA
+participant "Kids Reg MS (Cloud)" as KCMC
+database "Cloud Couchbase" as CBCloud
+participant "Data Replication Service" as DRS
+database "Ship Couchbase" as CBShip
+
+== Registration Form ==
+G -> MA: Opens Kids Club registration flow
+MA -> KCMC: POST /kids (child data: name, DOB, etc.)
+KCMC -> CBCloud: Save child doc
+KCMC -> MA: 201 Created
+
+== Child Tracking Toggle ==
+G -> MA: Chooses "Enable Child Tracking?"
+alt If Ship Offers Tracking
+  MA -> KCMC: PATCH /kids/{childId} (childTrackingEnabled=true)
+  KCMC -> MA: 200 OK
+  note over MA, KCMC: Additional forms required
+  MA -> KCMC: POST /kids/{childId}/guardians [list of guardians, band info, etc.]
+  KCMC -> CBCloud: Save guardians, band data
+  KCMC -> MA: 201 Created
+else If Not Offered
+  MA -> G: Hide or disable toggle
+end
+
+== Replication ==
+... Periodic or event-based ...
+DRS -> CBCloud: Fetch new/updated docs (child + tracking)
+DRS -> CBShip: Insert/Update docs in Ship Couchbase
+note over DRS, CBShip
+  Now childTrackingEnabled, guardians, band info
+  are reflected in the ship environment
+end note
+
+@enduml

@@ -1,0 +1,31 @@
+@startuml C4_Context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title C4 Context: Kids Club Registration & Replication (with Child Tracking)
+
+Person(guest, "Guest (Parent/Guardian)", "Registers children and can enable tracking via the Mobile App")
+System(mobileApp, "Mobile App (iOS/Android)", "Used by Guest to manage registration and child tracking toggle")
+
+Container_Boundary(cloud, "RCI Cloud Environment") {
+  Container(kidsRegCloud, "Kids Club Registration MS (Cloud)", "Java 21 / Spring WebFlux", "Handles pre-cruise registrations, childTrackingEnabled toggle, guardians data")
+  Container(couchbaseCloud, "Couchbase (Cloud)", "Database", "Stores child registration, photos (optional), and tracking data")
+  Container(dataReplication, "Data Replication Service", "Java 21 / Spring WebFlux", "Replicates data from Cloud to Ship")
+}
+
+Container_Boundary(ship, "Ship Environment") {
+  Container(kidsRegShip, "Kids Club Registration MS (Ship)", "Java 21 / Spring WebFlux", "Handles onboard registrations, updates, and child tracking forms")
+  Container(couchbaseShip, "Couchbase (Ship)", "Database", "Stores child registration, tracking toggles, guardians, photos if needed")
+  System_Ext(fidelio, "Fidelio / Onboard System", "Provides child photo data (if taken onboard) and band-related info")
+  System(onboardApp, "Kids Club App (Onboard)", "UI to manage or view child data/tracking")
+}
+
+Rel(guest, mobileApp, "Create/Update child, enable tracking, fill guardians")
+Rel(mobileApp, kidsRegCloud, "CRUD ops (Pre-cruise) via HTTPS/REST")
+Rel(kidsRegCloud, couchbaseCloud, "Stores & retrieves child/tracking data")
+Rel(dataReplication, couchbaseCloud, "Reads updated registration & tracking docs")
+Rel(dataReplication, couchbaseShip, "Pushes replicated docs to Ship DB")
+Rel(kidsRegShip, couchbaseShip, "CRUD ops (Onboard)")
+Rel(kidsRegShip, fidelio, "Pull photo data or band info if needed\n(Or do nothing if photo is taken onboard)")
+Rel(kidsRegShip, onboardApp, "Staff or guests onboard manage child tracking forms")
+
+@enduml
